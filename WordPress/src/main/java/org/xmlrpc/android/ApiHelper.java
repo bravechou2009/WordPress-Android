@@ -10,8 +10,8 @@ import android.webkit.URLUtil;
 
 import com.android.volley.DefaultRetryPolicy;
 import com.android.volley.NetworkResponse;
-import com.android.volley.RedirectError;
 import com.android.volley.TimeoutError;
+import com.android.volley.VolleyError;
 import com.android.volley.toolbox.RequestFuture;
 import com.android.volley.toolbox.StringRequest;
 import com.google.gson.Gson;
@@ -1015,6 +1015,18 @@ public class ApiHelper {
         return null;
     }
 
+    private static boolean isVolleyRedirectException(Exception e) {
+        if (e != null && e.getCause() instanceof VolleyError) {
+            VolleyError ve = (VolleyError) e.getCause();
+            if (ve.networkResponse != null) {
+                int statusCode = ve.networkResponse.statusCode;
+                return (statusCode == 301 || statusCode == 302);
+            }
+
+        }
+        return false;
+    }
+
     public static String getResponse(final String stringUrl, int numberOfRedirects) throws SSLHandshakeException, TimeoutError, TimeoutException {
         RequestFuture<String> future = RequestFuture.newFuture();
         StringRequest request = new StringRequest(stringUrl, future, future);
@@ -1025,14 +1037,14 @@ public class ApiHelper {
         } catch (InterruptedException e) {
             AppLog.e(T.API, e);
         } catch (ExecutionException e) {
-            if (e.getCause() != null && e.getCause() instanceof RedirectError) {
+            if (isVolleyRedirectException(e)) {
                 // Maximum 5 redirects or die
                 if (numberOfRedirects > 5) {
                     AppLog.e(T.API, "Maximum of 5 redirects reached, aborting.", e);
                     return null;
                 }
                 // Follow redirect
-                RedirectError re = (RedirectError) e.getCause();
+                VolleyError re = (VolleyError) e.getCause();
                 if (re.networkResponse != null) {
                     String newURL = getRedirectURL(stringUrl, re.networkResponse);
                     if (newURL == null) {
