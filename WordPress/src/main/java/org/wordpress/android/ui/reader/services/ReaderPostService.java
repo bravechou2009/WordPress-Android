@@ -192,6 +192,8 @@ public class ReaderPostService extends Service {
             sb.append("&before=").append(UrlUtils.urlEncode(beforeDate));
         }
 
+        sb.append("&fields=").append(ReaderPost.POST_FIELDS);
+
         com.wordpress.rest.RestRequest.Listener listener = new RestRequest.Listener() {
             @Override
             public void onResponse(JSONObject jsonObject) {
@@ -226,6 +228,8 @@ public class ReaderPostService extends Service {
             }
         }
 
+        path += "&fields=" + ReaderPost.POST_FIELDS;
+
         com.wordpress.rest.RestRequest.Listener listener = new RestRequest.Listener() {
             @Override
             public void onResponse(JSONObject jsonObject) {
@@ -253,6 +257,8 @@ public class ReaderPostService extends Service {
                 path += "&before=" + UrlUtils.urlEncode(dateOldest);
             }
         }
+
+        path += "&fields=" + ReaderPost.POST_FIELDS;
 
         com.wordpress.rest.RestRequest.Listener listener = new RestRequest.Listener() {
             @Override

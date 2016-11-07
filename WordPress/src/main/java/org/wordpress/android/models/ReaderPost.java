@@ -20,6 +20,18 @@ import java.text.BreakIterator;
 import java.util.Iterator;
 
 public class ReaderPost {
+
+    // these are the specific fields we should ask for when requesting posts
+    public static final String POST_FIELDS =
+            "ID,site_ID,feed_ID,feed_item_ID,pseudo_ID,global_ID,"
+          + "excerpt,title,format,content,"
+          + "URL,short_URL,site_URL,"
+          + "like_count,i_like,is_following,is_external,site_is_private,is_jetpack,"
+          + "discussion,comments_open,comment_count,"
+          + "author,featured_image,featured_media,"
+          + "date,date_liked,tagged_on,score,"
+          + "tags,attachments,meta,discover_metadata,metadata";
+
     private String pseudoId;
     public long postId;
     public long blogId;
