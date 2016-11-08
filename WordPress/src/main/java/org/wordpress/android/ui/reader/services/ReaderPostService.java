@@ -353,7 +353,8 @@ public class ReaderPostService extends Service {
      * use a ThreadPoolExecutor to download content for the passed list of posts
      */
     private static void updateContentForPosts(ReaderPostList posts) {
-        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(1);
+        int numThreads = Math.min(3, Runtime.getRuntime().availableProcessors());
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(numThreads);
         for (ReaderPost post : posts) {
             executor.submit(new ContentThread(post));
         }
@@ -405,7 +406,6 @@ public class ReaderPostService extends Service {
                 @Override
                 public void onResponse(JSONObject jsonObject) {
                     String content = JSONUtils.getString(jsonObject, "content");
-                    AppLog.w(AppLog.T.READER, "content updated");
                     ReaderPostTable.setPostContent(mBlogId, mPostId, content);
                     setIsCompleted(true);
                 }
@@ -419,7 +419,6 @@ public class ReaderPostService extends Service {
                 }
             };
 
-            AppLog.w(AppLog.T.READER, "Updating content");
             String path = "read/sites/" + mBlogId + "/posts/" + mPostId + "/?fields=content";
             WordPress.getRestClientUtilsV1_2().get(path, null, null, listener, errorListener);
         }
