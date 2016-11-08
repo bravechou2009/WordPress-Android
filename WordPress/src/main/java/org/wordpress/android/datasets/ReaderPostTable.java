@@ -18,7 +18,6 @@ import org.wordpress.android.ui.reader.models.ReaderBlogIdPostIdList;
 import org.wordpress.android.util.AppLog;
 import org.wordpress.android.util.CrashlyticsUtils;
 import org.wordpress.android.util.SqlUtils;
-import org.wordpress.android.util.StringUtils;
 
 /**
  * tbl_posts contains all reader posts - the primary key is pseudo_id + tag_name + tag_type,
@@ -249,7 +248,7 @@ public class ReaderPostTable {
             }
             ReaderPost post = getPostFromCursor(c);
             if (!excludeContent) {
-                post.setContent(getPostContent(post.getPseudoId()));
+                post.setContent(getPostContent(post.blogId, post.postId));
             }
             return post;
         } finally {
@@ -271,10 +270,16 @@ public class ReaderPostTable {
                 args);
     }
 
-    public static String getPostContent(String pseudoId) {
-        String[] args = {StringUtils.notNullStr(pseudoId)};
-        return SqlUtils.stringForQuery(ReaderDatabase.getReadableDb(),
-                "SELECT content FROM tbl_post_content WHERE pseudo_id=?",
+    public static void setPostContent(long blogId, long postId, String content) {
+        String sql = "UPDATE tbl_post_content SET content=? WHERE blog_id=? AND post_id=?";
+        String[] args = {content, Long.toString(blogId), Long.toString(postId)};
+        ReaderDatabase.getWritableDb().execSQL(sql, args);
+    }
+
+    public static boolean hasContentForPost(long blogId, long postId) {
+        String[] args = {Long.toString(blogId), Long.toString(postId)};
+        return SqlUtils.boolForQuery(ReaderDatabase.getReadableDb(),
+                "SELECT 1 FROM tbl_post_content WHERE blog_id=? AND post_id=?",
                 args);
     }
 

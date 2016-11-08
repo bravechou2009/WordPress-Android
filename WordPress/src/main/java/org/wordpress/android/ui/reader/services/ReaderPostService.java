@@ -23,6 +23,7 @@ import org.wordpress.android.ui.reader.actions.ReaderActions.UpdateResult;
 import org.wordpress.android.ui.reader.actions.ReaderActions.UpdateResultListener;
 import org.wordpress.android.ui.reader.utils.ReaderUtils;
 import org.wordpress.android.util.AppLog;
+import org.wordpress.android.util.JSONUtils;
 import org.wordpress.android.util.StringUtils;
 import org.wordpress.android.util.UrlUtils;
 
@@ -327,6 +328,7 @@ public class ReaderPostService extends Service {
                     }
 
                     ReaderPostTable.addOrUpdatePosts(tag, serverPosts);
+                    updateContentForPosts(serverPosts);
 
                     // gap marker must be set after saving server posts
                     if (postWithGap != null) {
@@ -342,6 +344,28 @@ public class ReaderPostService extends Service {
             }
         }.start();
     }
+
+    private static void updateContentForPosts(ReaderPostList posts) {
+        for (ReaderPost post: posts) {
+            if (!ReaderPostTable.hasContentForPost(post.blogId, post.postId)) {
+                updateContentForSinglePost(post);
+            }
+        }
+    }
+
+    private static void updateContentForSinglePost(final ReaderPost post) {
+        com.wordpress.rest.RestRequest.Listener listener = new RestRequest.Listener() {
+            @Override
+            public void onResponse(JSONObject jsonObject) {
+                String content = JSONUtils.getString(jsonObject, "content");
+                ReaderPostTable.setPostContent(post.blogId, post.postId, content);
+            }
+        };
+
+        String path = "read/sites/" + post.blogId + "/posts/" + post.postId + "/?fields=content";
+        WordPress.getRestClientUtilsV1_2().get(path, null, null, listener, null);
+    }
+
 
     /*
      * returns the endpoint to use when requesting posts with the passed tag
