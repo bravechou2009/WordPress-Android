@@ -662,8 +662,8 @@ public class ReaderPostTable {
                 stmtPosts.execute();
 
                 if (post.hasContent()) {
-                    stmtContent.bindLong  (1,  post.postId);
-                    stmtContent.bindLong  (2,  post.blogId);
+                    stmtContent.bindLong  (1,  post.blogId);
+                    stmtContent.bindLong  (2,  post.postId);
                     stmtContent.bindString(3,  post.getPseudoId());
                     stmtContent.bindString(4,  post.getContent());
                     stmtContent.execute();
