@@ -666,6 +666,7 @@ public class ReaderPostTable {
                     stmtContent.bindLong  (2,  post.blogId);
                     stmtContent.bindString(3,  post.getPseudoId());
                     stmtContent.bindString(4,  post.getContent());
+                    stmtContent.execute();
                 }
             }
 
