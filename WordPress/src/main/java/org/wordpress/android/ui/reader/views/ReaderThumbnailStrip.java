@@ -81,7 +81,7 @@ public class ReaderThumbnailStrip extends LinearLayout {
         mContainer.removeAllViews();
 
         // get this post's content and scan it for images suitable in a gallery
-        final String content = ReaderPostTable.getPostText(blogId, postId);
+        final String content = ReaderPostTable.getPostContent(blogId, postId);
         final ReaderImageList imageList =
                 new ReaderImageScanner(content, isPrivate).getGalleryImageList();
         if (imageList.size() < MIN_IMAGE_COUNT) {

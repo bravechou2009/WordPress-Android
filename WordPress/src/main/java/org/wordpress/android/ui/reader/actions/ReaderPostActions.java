@@ -174,7 +174,7 @@ public class ReaderPostActions {
                     localPost.isLikedByCurrentUser = serverPost.isLikedByCurrentUser;
                     localPost.isCommentsOpen = serverPost.isCommentsOpen;
                     localPost.setTitle(serverPost.getTitle());
-                    localPost.setText(serverPost.getText());
+                    localPost.setContent(serverPost.getContent());
                     ReaderPostTable.addOrUpdatePost(localPost);
                 }
 

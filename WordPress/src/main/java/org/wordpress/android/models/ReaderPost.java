@@ -47,7 +47,7 @@ public class ReaderPost {
     public long authorId;
 
     private String title;
-    private String text;
+    private String content;
     private String excerpt;
     private String authorName;
     private String authorFirstName;
@@ -109,7 +109,7 @@ public class ReaderPost {
         // remove HTML from the excerpt
         post.excerpt = HtmlUtils.fastStripHtml(JSONUtils.getString(json, "excerpt")).trim();
 
-        post.text = JSONUtils.getString(json, "content");
+        post.content = JSONUtils.getString(json, "content");
         post.title = JSONUtils.getStringDecoded(json, "title");
         post.format = JSONUtils.getString(json, "format");
         post.url = JSONUtils.getString(json, "URL");
@@ -210,8 +210,8 @@ public class ReaderPost {
         }
         // if we *still* don't have a featured image but the text contains an IMG tag, check whether
         // we can find a suitable image from the text
-        if (!post.hasFeaturedImage() && post.hasText() && post.text.contains("<img")) {
-            post.featuredImage = new ReaderImageScanner(post.text, post.isPrivate)
+        if (!post.hasFeaturedImage() && post.hasContent() && post.content.contains("<img")) {
+            post.featuredImage = new ReaderImageScanner(post.content, post.isPrivate)
                     .getLargestImage(ReaderConstants.MIN_FEATURED_IMAGE_WIDTH);
         }
 
@@ -379,11 +379,11 @@ public class ReaderPost {
         this.title = StringUtils.notNullStr(title);
     }
 
-    public String getText() {
-        return StringUtils.notNullStr(text);
+    public String getContent() {
+        return StringUtils.notNullStr(content);
     }
-    public void setText(String text) {
-        this.text = StringUtils.notNullStr(text);
+    public void setContent(String text) {
+        this.content = StringUtils.notNullStr(text);
     }
 
     public String getExcerpt() {
@@ -550,8 +550,8 @@ public class ReaderPost {
         return discoverData;
     }
 
-    public boolean hasText() {
-        return !TextUtils.isEmpty(text);
+    public boolean hasContent() {
+        return !TextUtils.isEmpty(content);
     }
 
     public boolean hasUrl() {
@@ -625,7 +625,7 @@ public class ReaderPost {
                 && post.isCommentsOpen == this.isCommentsOpen
                 && post.getTitle().equals(this.getTitle())
                 && post.getExcerpt().equals(this.getExcerpt())
-                && post.getText().equals(this.getText());
+                && post.getContent().equals(this.getContent());
     }
 
     public boolean hasIds(ReaderBlogIdPostId ids) {

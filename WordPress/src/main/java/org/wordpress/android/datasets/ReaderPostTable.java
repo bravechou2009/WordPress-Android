@@ -6,8 +6,6 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteStatement;
 import android.text.TextUtils;
 
-import org.wordpress.android.R;
-import org.wordpress.android.WordPress;
 import org.wordpress.android.models.ReaderPost;
 import org.wordpress.android.models.ReaderPostList;
 import org.wordpress.android.models.ReaderTag;
@@ -20,6 +18,7 @@ import org.wordpress.android.ui.reader.models.ReaderBlogIdPostIdList;
 import org.wordpress.android.util.AppLog;
 import org.wordpress.android.util.CrashlyticsUtils;
 import org.wordpress.android.util.SqlUtils;
+import org.wordpress.android.util.StringUtils;
 
 /**
  * tbl_posts contains all reader posts - the primary key is pseudo_id + tag_name + tag_type,
@@ -38,59 +37,14 @@ public class ReaderPostTable {
           + "author_first_name,"    // 7
           + "author_id,"            // 8
           + "title,"                // 9
-          + "text,"                 // 10
-          + "excerpt,"              // 11
-          + "format,"               // 12
-          + "url,"                  // 13
-          + "short_url,"            // 14
-          + "blog_url,"             // 15
-          + "blog_name,"            // 16
-          + "featured_image,"       // 17
-          + "featured_video,"       // 18
-          + "post_avatar,"          // 19
-          + "score,"                // 20
-          + "date_published,"       // 21
-          + "date_liked,"           // 22
-          + "date_tagged,"          // 23
-          + "num_replies,"          // 24
-          + "num_likes,"            // 25
-          + "is_liked,"             // 26
-          + "is_followed,"          // 27
-          + "is_comments_open,"     // 28
-          + "is_external,"          // 29
-          + "is_private,"           // 30
-          + "is_videopress,"        // 31
-          + "is_jetpack,"           // 32
-          + "primary_tag,"          // 33
-          + "secondary_tag,"        // 34
-          + "attachments_json,"     // 35
-          + "discover_json,"        // 36
-          + "xpost_post_id,"        // 37
-          + "xpost_blog_id,"        // 38
-          + "railcar_json,"         // 39
-          + "tag_name,"             // 40
-          + "tag_type,"             // 41
-          + "has_gap_marker";       // 42
-
-    // used when querying multiple rows and skipping text column
-    private static final String COLUMN_NAMES_NO_TEXT =
-            "post_id,"              // 1
-          + "blog_id,"              // 2
-          + "feed_id,"              // 3
-          + "feed_item_id,"         // 4
-          + "author_id,"            // 5
-          + "pseudo_id,"            // 6
-          + "author_name,"          // 7
-          + "author_first_name,"    // 8
-          + "blog_name,"            // 9
-          + "blog_url,"             // 10
-          + "excerpt,"              // 11
-          + "format,"               // 12
-          + "featured_image,"       // 13
-          + "featured_video,"       // 14
-          + "title,"                // 15
-          + "url,"                  // 16
-          + "short_url,"            // 17
+          + "excerpt,"              // 10
+          + "format,"               // 11
+          + "url,"                  // 12
+          + "short_url,"            // 13
+          + "blog_url,"             // 14
+          + "blog_name,"            // 15
+          + "featured_image,"       // 16
+          + "featured_video,"       // 17
           + "post_avatar,"          // 18
           + "score,"                // 19
           + "date_published,"       // 20
@@ -127,7 +81,6 @@ public class ReaderPostTable {
                 + "	author_first_name	TEXT,"
                 + " author_id           INTEGER DEFAULT 0,"
                 + "	title	            TEXT,"
-                + "	text                TEXT,"
                 + "	excerpt             TEXT,"
                 + "	format              TEXT,"
                 + " url                 TEXT,"
@@ -167,10 +120,20 @@ public class ReaderPostTable {
         db.execSQL("CREATE INDEX idx_posts_date_published ON tbl_posts(date_published)");
         db.execSQL("CREATE INDEX idx_posts_date_tagged ON tbl_posts(date_tagged)");
         db.execSQL("CREATE INDEX idx_posts_tag_name ON tbl_posts(tag_name)");
+
+        db.execSQL("CREATE TABLE tbl_post_content ("
+                + " post_id     INTEGER DEFAULT 0,"
+                + " blog_id     INTEGER DEFAULT 0,"
+                + " pseudo_id   TEXT NOT NULL,"
+                + " content     TEXT NOT NULL,"
+                + " PRIMARY KEY (pseudo_id)"
+                + ")");
+        db.execSQL("CREATE UNIQUE INDEX idx_post_content_ids ON tbl_post_content(post_id, blog_id)");
     }
 
     protected static void dropTables(SQLiteDatabase db) {
         db.execSQL("DROP TABLE IF EXISTS tbl_posts");
+        db.execSQL("DROP TABLE IF EXISTS tbl_post_content");
     }
 
     protected static void reset(SQLiteDatabase db) {
@@ -194,6 +157,11 @@ public class ReaderPostTable {
 
         // delete search results
         numDeleted += purgeSearchResults(db);
+
+        // delete content attached to posts that no longer exist
+        if (numDeleted > 0) {
+            db.delete("tbl_post_content", "pseudo_id NOT IN (SELECT DISTINCT pseudo_id FROM tbl_posts)", null);
+        }
 
         return numDeleted;
     }
@@ -261,17 +229,16 @@ public class ReaderPostTable {
         addOrUpdatePosts(null, posts);
     }
 
-    public static ReaderPost getBlogPost(long blogId, long postId, boolean excludeTextColumn) {
-        return getPost(false, blogId, postId, excludeTextColumn);
+    public static ReaderPost getBlogPost(long blogId, long postId, boolean excludeContent) {
+        return getPost(false, blogId, postId, excludeContent);
     }
 
-    public static ReaderPost getFeedPost(long feedId, long feedItemId, boolean excludeTextColumn) {
-        return getPost(true, feedId, feedItemId, excludeTextColumn);
+    public static ReaderPost getFeedPost(long feedId, long feedItemId, boolean excludeContent) {
+        return getPost(true, feedId, feedItemId, excludeContent);
     }
 
-    private static ReaderPost getPost(boolean isFeed, long blogOrFeedId, long postOrItemId, boolean excludeTextColumn) {
-        String columns = (excludeTextColumn ? COLUMN_NAMES_NO_TEXT : "*");
-        String sql = "SELECT " + columns + " FROM tbl_posts WHERE "
+    private static ReaderPost getPost(boolean isFeed, long blogOrFeedId, long postOrItemId, boolean excludeContent) {
+        String sql = "SELECT * FROM tbl_posts WHERE "
                 + (isFeed ? "feed_id" : "blog_id") + "=? AND " + (isFeed ? "feed_item_id" : "post_id") + "=? LIMIT 1";
 
         String[] args = new String[] {Long.toString(blogOrFeedId), Long.toString(postOrItemId)};
@@ -280,7 +247,11 @@ public class ReaderPostTable {
             if (!c.moveToFirst()) {
                 return null;
             }
-            return getPostFromCursor(c);
+            ReaderPost post = getPostFromCursor(c);
+            if (!excludeContent) {
+                post.setContent(getPostContent(post.getPseudoId()));
+            }
+            return post;
         } finally {
             SqlUtils.closeCursor(c);
         }
@@ -293,10 +264,17 @@ public class ReaderPostTable {
                 args);
     }
 
-    public static String getPostText(long blogId, long postId) {
+    public static String getPostContent(long blogId, long postId) {
         String[] args = {Long.toString(blogId), Long.toString(postId)};
         return SqlUtils.stringForQuery(ReaderDatabase.getReadableDb(),
-                "SELECT text FROM tbl_posts WHERE blog_id=? AND post_id=?",
+                "SELECT content FROM tbl_post_content WHERE blog_id=? AND post_id=?",
+                args);
+    }
+
+    public static String getPostContent(String pseudoId) {
+        String[] args = {StringUtils.notNullStr(pseudoId)};
+        return SqlUtils.stringForQuery(ReaderDatabase.getReadableDb(),
+                "SELECT content FROM tbl_post_content WHERE pseudo_id=?",
                 args);
     }
 
@@ -616,32 +594,6 @@ public class ReaderPostTable {
         }
     }
 
-    /*
-     * Android's CursorWindow has a max size of 2MB per row which can be exceeded
-     * with a very large text column, causing an IllegalStateException when the
-     * row is read - prevent this by limiting the amount of text that's stored in
-     * the text column - note that this situation very rarely occurs
-     * https://github.com/android/platform_frameworks_base/blob/b77bc869241644a662f7e615b0b00ecb5aee373d/core/res/res/values/config.xml#L1268
-     * https://github.com/android/platform_frameworks_base/blob/3bdbf644d61f46b531838558fabbd5b990fc4913/core/java/android/database/CursorWindow.java#L103
-     */
-    private static final int MAX_TEXT_LEN = (1024 * 1024) / 2;
-    private static String maxText(final ReaderPost post) {
-        if (post.getText().length() <= MAX_TEXT_LEN) {
-            return post.getText();
-        }
-        // if the post has an excerpt (which should always be the case), store it as the full text
-        // with a link to the full article
-        if (post.hasExcerpt()) {
-            AppLog.w(AppLog.T.READER, "reader post table > max text exceeded, storing excerpt");
-            return "<p>" + post.getExcerpt() + "</p>"
-                  + String.format("<p style='text-align:center'><a href='%s'>%s</a></p>",
-                    post.getUrl(), WordPress.getContext().getString(R.string.reader_label_view_original));
-        } else {
-            AppLog.w(AppLog.T.READER, "reader post table > max text exceeded, storing truncated text");
-            return post.getText().substring(0, MAX_TEXT_LEN);
-        }
-    }
-
     public static void addOrUpdatePosts(final ReaderTag tag, ReaderPostList posts) {
         if (posts == null || posts.size() == 0) {
             return;
@@ -651,7 +603,10 @@ public class ReaderPostTable {
         SQLiteStatement stmtPosts = db.compileStatement(
                 "INSERT OR REPLACE INTO tbl_posts ("
                         + COLUMN_NAMES
-                        + ") VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36,?37,?38,?39,?40,?41,?42)");
+                        + ") VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36,?37,?38,?39,?40,?41)");
+
+        SQLiteStatement stmtContent = db.compileStatement(
+                "INSERT OR REPLACE INTO tbl_post_content (blog_id, post_id, pseudo_id, content) VALUES (?1,?2,?3,?4)");
 
         db.beginTransaction();
         try {
@@ -672,40 +627,46 @@ public class ReaderPostTable {
                 stmtPosts.bindString(7,  post.getAuthorFirstName());
                 stmtPosts.bindLong  (8,  post.authorId);
                 stmtPosts.bindString(9,  post.getTitle());
-                stmtPosts.bindString(10, maxText(post));
-                stmtPosts.bindString(11, post.getExcerpt());
-                stmtPosts.bindString(12, post.getFormat());
-                stmtPosts.bindString(13, post.getUrl());
-                stmtPosts.bindString(14, post.getShortUrl());
-                stmtPosts.bindString(15, post.getBlogUrl());
-                stmtPosts.bindString(16, post.getBlogName());
-                stmtPosts.bindString(17, post.getFeaturedImage());
-                stmtPosts.bindString(18, post.getFeaturedVideo());
-                stmtPosts.bindString(19, post.getPostAvatar());
-                stmtPosts.bindDouble(20, post.score);
-                stmtPosts.bindString(21, post.getDatePublished());
-                stmtPosts.bindString(22, post.getDateLiked());
-                stmtPosts.bindString(23, post.getDateTagged());
-                stmtPosts.bindLong  (24, post.numReplies);
-                stmtPosts.bindLong  (25, post.numLikes);
-                stmtPosts.bindLong  (26, SqlUtils.boolToSql(post.isLikedByCurrentUser));
-                stmtPosts.bindLong  (27, SqlUtils.boolToSql(post.isFollowedByCurrentUser));
-                stmtPosts.bindLong  (28, SqlUtils.boolToSql(post.isCommentsOpen));
-                stmtPosts.bindLong  (29, SqlUtils.boolToSql(post.isExternal));
-                stmtPosts.bindLong  (30, SqlUtils.boolToSql(post.isPrivate));
-                stmtPosts.bindLong  (31, SqlUtils.boolToSql(post.isVideoPress));
-                stmtPosts.bindLong  (32, SqlUtils.boolToSql(post.isJetpack));
-                stmtPosts.bindString(33, post.getPrimaryTag());
-                stmtPosts.bindString(34, post.getSecondaryTag());
-                stmtPosts.bindString(35, post.getAttachmentsJson());
-                stmtPosts.bindString(36, post.getDiscoverJson());
-                stmtPosts.bindLong  (37, post.xpostPostId);
-                stmtPosts.bindLong  (38, post.xpostBlogId);
-                stmtPosts.bindString(39, post.getRailcarJson());
-                stmtPosts.bindString(40, tagName);
-                stmtPosts.bindLong  (41, tagType);
-                stmtPosts.bindLong  (42, SqlUtils.boolToSql(hasGapMarker));
+                stmtPosts.bindString(10, post.getExcerpt());
+                stmtPosts.bindString(11, post.getFormat());
+                stmtPosts.bindString(12, post.getUrl());
+                stmtPosts.bindString(13, post.getShortUrl());
+                stmtPosts.bindString(14, post.getBlogUrl());
+                stmtPosts.bindString(15, post.getBlogName());
+                stmtPosts.bindString(16, post.getFeaturedImage());
+                stmtPosts.bindString(17, post.getFeaturedVideo());
+                stmtPosts.bindString(18, post.getPostAvatar());
+                stmtPosts.bindDouble(19, post.score);
+                stmtPosts.bindString(20, post.getDatePublished());
+                stmtPosts.bindString(21, post.getDateLiked());
+                stmtPosts.bindString(22, post.getDateTagged());
+                stmtPosts.bindLong  (23, post.numReplies);
+                stmtPosts.bindLong  (24, post.numLikes);
+                stmtPosts.bindLong  (25, SqlUtils.boolToSql(post.isLikedByCurrentUser));
+                stmtPosts.bindLong  (26, SqlUtils.boolToSql(post.isFollowedByCurrentUser));
+                stmtPosts.bindLong  (27, SqlUtils.boolToSql(post.isCommentsOpen));
+                stmtPosts.bindLong  (28, SqlUtils.boolToSql(post.isExternal));
+                stmtPosts.bindLong  (29, SqlUtils.boolToSql(post.isPrivate));
+                stmtPosts.bindLong  (30, SqlUtils.boolToSql(post.isVideoPress));
+                stmtPosts.bindLong  (31, SqlUtils.boolToSql(post.isJetpack));
+                stmtPosts.bindString(32, post.getPrimaryTag());
+                stmtPosts.bindString(33, post.getSecondaryTag());
+                stmtPosts.bindString(34, post.getAttachmentsJson());
+                stmtPosts.bindString(35, post.getDiscoverJson());
+                stmtPosts.bindLong  (36, post.xpostPostId);
+                stmtPosts.bindLong  (37, post.xpostBlogId);
+                stmtPosts.bindString(38, post.getRailcarJson());
+                stmtPosts.bindString(39, tagName);
+                stmtPosts.bindLong  (40, tagType);
+                stmtPosts.bindLong  (41, SqlUtils.boolToSql(hasGapMarker));
                 stmtPosts.execute();
+
+                if (post.hasContent()) {
+                    stmtContent.bindLong  (1,  post.postId);
+                    stmtContent.bindLong  (2,  post.blogId);
+                    stmtContent.bindString(3,  post.getPseudoId());
+                    stmtContent.bindString(4,  post.getContent());
+                }
             }
 
             db.setTransactionSuccessful();
@@ -713,16 +674,16 @@ public class ReaderPostTable {
         } finally {
             db.endTransaction();
             SqlUtils.closeStatement(stmtPosts);
+            SqlUtils.closeStatement(stmtContent);
         }
     }
 
-    public static ReaderPostList getPostsWithTag(ReaderTag tag, int maxPosts, boolean excludeTextColumn) {
+    public static ReaderPostList getPostsWithTag(ReaderTag tag, int maxPosts) {
         if (tag == null) {
             return new ReaderPostList();
         }
 
-        String columns = (excludeTextColumn ? COLUMN_NAMES_NO_TEXT : "*");
-        String sql = "SELECT " + columns + " FROM tbl_posts WHERE tag_name=? AND tag_type=?";
+        String sql = "SELECT * FROM tbl_posts WHERE tag_name=? AND tag_type=?";
 
         if (tag.tagType == ReaderTagType.DEFAULT) {
             // skip posts that are no longer liked if this is "Posts I Like", skip posts that are no
@@ -749,9 +710,8 @@ public class ReaderPostTable {
         }
     }
 
-    public static ReaderPostList getPostsInBlog(long blogId, int maxPosts, boolean excludeTextColumn) {
-        String columns = (excludeTextColumn ? COLUMN_NAMES_NO_TEXT : "*");
-        String sql = "SELECT " + columns + " FROM tbl_posts WHERE blog_id=? AND tag_name='' ORDER BY date_published DESC";
+    public static ReaderPostList getPostsInBlog(long blogId, int maxPosts) {
+        String sql = "SELECT * FROM tbl_posts WHERE blog_id=? AND tag_name='' ORDER BY date_published DESC";
 
         if (maxPosts > 0) {
             sql += " LIMIT " + Integer.toString(maxPosts);
@@ -765,9 +725,8 @@ public class ReaderPostTable {
         }
     }
 
-    public static ReaderPostList getPostsInFeed(long feedId, int maxPosts, boolean excludeTextColumn) {
-        String columns = (excludeTextColumn ? COLUMN_NAMES_NO_TEXT : "*");
-        String sql = "SELECT " + columns + " FROM tbl_posts WHERE feed_id=? AND tag_name='' ORDER BY date_published DESC";
+    public static ReaderPostList getPostsInFeed(long feedId, int maxPosts) {
+        String sql = "SELECT * FROM tbl_posts WHERE feed_id=? AND tag_name='' ORDER BY date_published DESC";
 
         if (maxPosts > 0) {
             sql += " LIMIT " + Integer.toString(maxPosts);
@@ -851,12 +810,6 @@ public class ReaderPostTable {
         }
 
         ReaderPost post = new ReaderPost();
-
-        // text column is skipped when retrieving multiple rows
-        int idxText = c.getColumnIndex("text");
-        if (idxText > -1) {
-            post.setText(c.getString(idxText));
-        }
 
         post.postId = c.getLong(c.getColumnIndex("post_id"));
         post.blogId = c.getLong(c.getColumnIndex("blog_id"));

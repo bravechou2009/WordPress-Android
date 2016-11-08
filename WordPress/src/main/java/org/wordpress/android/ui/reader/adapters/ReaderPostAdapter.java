@@ -76,8 +76,6 @@ public class ReaderPostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     private ReaderActions.DataRequestedListener mDataRequestedListener;
     private ReaderSiteHeaderView.OnBlogInfoLoadedListener mBlogInfoLoadedListener;
 
-    // the large "tbl_posts.text" column is unused here, so skip it when querying
-    private static final boolean EXCLUDE_TEXT_COLUMN = true;
     private static final int MAX_ROWS = ReaderConstants.READER_MAX_POSTS_TO_DISPLAY;
 
     private static final int VIEW_TYPE_POST        = 0;
@@ -882,15 +880,15 @@ public class ReaderPostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
                 case TAG_PREVIEW:
                 case TAG_FOLLOWED:
                 case SEARCH_RESULTS:
-                    allPosts = ReaderPostTable.getPostsWithTag(mCurrentTag, MAX_ROWS, EXCLUDE_TEXT_COLUMN);
+                    allPosts = ReaderPostTable.getPostsWithTag(mCurrentTag, MAX_ROWS);
                     numExisting = ReaderPostTable.getNumPostsWithTag(mCurrentTag);
                     break;
                 case BLOG_PREVIEW:
                     if (mCurrentFeedId != 0) {
-                        allPosts = ReaderPostTable.getPostsInFeed(mCurrentFeedId, MAX_ROWS, EXCLUDE_TEXT_COLUMN);
+                        allPosts = ReaderPostTable.getPostsInFeed(mCurrentFeedId, MAX_ROWS);
                         numExisting = ReaderPostTable.getNumPostsInFeed(mCurrentFeedId);
                     } else {
-                        allPosts = ReaderPostTable.getPostsInBlog(mCurrentBlogId, MAX_ROWS, EXCLUDE_TEXT_COLUMN);
+                        allPosts = ReaderPostTable.getPostsInBlog(mCurrentBlogId, MAX_ROWS);
                         numExisting = ReaderPostTable.getNumPostsInBlog(mCurrentBlogId);
                     }
                     break;
