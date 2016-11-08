@@ -21,16 +21,23 @@ import java.util.Iterator;
 
 public class ReaderPost {
 
-    // these are the specific fields we should ask for when requesting posts
-    public static final String POST_FIELDS =
+    /*
+     * these are the specific fields we should ask for when requesting posts
+     *   - POST_FIELDS_WITHOUT_CONTENT is used when populating the stream to skip the expensive content field
+     *   - POST_FIELDS_WITH_CONTENT is used when updating a single post and NOT skipping the content field
+     */
+    public static final String POST_FIELDS_WITHOUT_CONTENT =
             "ID,site_ID,feed_ID,feed_item_ID,pseudo_ID,global_ID,"
-          + "excerpt,title,format,content,"
+          + "excerpt,title,format,"
           + "URL,short_URL,site_URL,"
           + "like_count,i_like,is_following,is_external,site_is_private,is_jetpack,"
           + "discussion,comments_open,comment_count,"
           + "author,featured_image,featured_media,"
           + "date,date_liked,tagged_on,score,"
           + "tags,attachments,meta,discover_metadata,metadata";
+
+    public static final String POST_FIELDS_WITH_CONTENT =
+            POST_FIELDS_WITHOUT_CONTENT + ",content";
 
     private String pseudoId;
     public long postId;

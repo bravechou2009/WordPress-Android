@@ -192,7 +192,7 @@ public class ReaderPostService extends Service {
             sb.append("&before=").append(UrlUtils.urlEncode(beforeDate));
         }
 
-        sb.append("&fields=").append(ReaderPost.POST_FIELDS);
+        sb.append("&fields=").append(ReaderPost.POST_FIELDS_WITHOUT_CONTENT);
 
         com.wordpress.rest.RestRequest.Listener listener = new RestRequest.Listener() {
             @Override
@@ -228,7 +228,7 @@ public class ReaderPostService extends Service {
             }
         }
 
-        path += "&fields=" + ReaderPost.POST_FIELDS;
+        path += "&fields=" + ReaderPost.POST_FIELDS_WITHOUT_CONTENT;
 
         com.wordpress.rest.RestRequest.Listener listener = new RestRequest.Listener() {
             @Override
@@ -258,7 +258,7 @@ public class ReaderPostService extends Service {
             }
         }
 
-        path += "&fields=" + ReaderPost.POST_FIELDS;
+        path += "&fields=" + ReaderPost.POST_FIELDS_WITHOUT_CONTENT;
 
         com.wordpress.rest.RestRequest.Listener listener = new RestRequest.Listener() {
             @Override

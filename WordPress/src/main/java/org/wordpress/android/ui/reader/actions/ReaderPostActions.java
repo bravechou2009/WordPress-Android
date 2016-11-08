@@ -110,7 +110,7 @@ public class ReaderPostActions {
     public static void updatePost(final ReaderPost localPost,
                                   final UpdateResultListener resultListener) {
         String path = "read/sites/" + localPost.blogId + "/posts/" + localPost.postId + "/?meta=site,likes";
-        path += "&fields=" + ReaderPost.POST_FIELDS;
+        path += "&fields=" + ReaderPost.POST_FIELDS_WITH_CONTENT;
 
         com.wordpress.rest.RestRequest.Listener listener = new RestRequest.Listener() {
             @Override
@@ -247,7 +247,7 @@ public class ReaderPostActions {
             final ReaderActions.OnRequestListener requestListener) {
         String path = isFeed ? "read/feed/" + blogOrFeedId + "/posts/" + postOrItemId + "/?meta=site,likes" :
                 "read/sites/" + blogOrFeedId + "/posts/" + postOrItemId + "/?meta=site,likes";
-        path += "&fields=" + ReaderPost.POST_FIELDS;
+        path += "&fields=" + ReaderPost.POST_FIELDS_WITH_CONTENT;
 
         com.wordpress.rest.RestRequest.Listener listener = new RestRequest.Listener() {
             @Override
