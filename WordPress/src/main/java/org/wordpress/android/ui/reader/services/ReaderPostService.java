@@ -27,6 +27,9 @@ import org.wordpress.android.util.JSONUtils;
 import org.wordpress.android.util.StringUtils;
 import org.wordpress.android.util.UrlUtils;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+
 import de.greenrobot.event.EventBus;
 
 /**
@@ -345,24 +348,37 @@ public class ReaderPostService extends Service {
         }.start();
     }
 
+    /*
+     * use a ThreadPoolExecutor to download content for the passed list of posts
+     */
     private static void updateContentForPosts(ReaderPostList posts) {
-        for (ReaderPost post: posts) {
-            if (!ReaderPostTable.hasContentForPost(post.blogId, post.postId)) {
-                updateContentForSinglePost(post);
-            }
+        ThreadPoolExecutor postContentExecutor =
+                (ThreadPoolExecutor) Executors.newFixedThreadPool(2);
+        for (final ReaderPost post : posts) {
+            postContentExecutor.submit(new Thread() {
+                @Override
+                public void run() {
+                    // skip xposts and posts we already have the content of
+                    if (!post.isXpost() && !ReaderPostTable.hasContentForPost(post.blogId, post.postId)) {
+                        AppLog.w(AppLog.T.READER, "Updating content for " + post.getTitle());
+                        updateContentForSinglePost(post.blogId, post.postId);
+                    }
+                }
+            });
         }
     }
 
-    private static void updateContentForSinglePost(final ReaderPost post) {
+    private static void updateContentForSinglePost(final long blogId, final long postId) {
         com.wordpress.rest.RestRequest.Listener listener = new RestRequest.Listener() {
             @Override
             public void onResponse(JSONObject jsonObject) {
                 String content = JSONUtils.getString(jsonObject, "content");
-                ReaderPostTable.setPostContent(post.blogId, post.postId, content);
+                AppLog.w(AppLog.T.READER, "content updated");
+                ReaderPostTable.setPostContent(blogId, postId, content);
             }
         };
 
-        String path = "read/sites/" + post.blogId + "/posts/" + post.postId + "/?fields=content";
+        String path = "read/sites/" + blogId + "/posts/" + postId + "/?fields=content";
         WordPress.getRestClientUtilsV1_2().get(path, null, null, listener, null);
     }
 
