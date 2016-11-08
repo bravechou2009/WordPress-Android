@@ -4,6 +4,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
+import android.support.annotation.NonNull;
 import android.text.TextUtils;
 
 import com.android.volley.VolleyError;
@@ -352,34 +353,76 @@ public class ReaderPostService extends Service {
      * use a ThreadPoolExecutor to download content for the passed list of posts
      */
     private static void updateContentForPosts(ReaderPostList posts) {
-        ThreadPoolExecutor postContentExecutor =
-                (ThreadPoolExecutor) Executors.newFixedThreadPool(2);
-        for (final ReaderPost post : posts) {
-            postContentExecutor.submit(new Thread() {
-                @Override
-                public void run() {
-                    // skip xposts and posts we already have the content of
-                    if (!post.isXpost() && !ReaderPostTable.hasContentForPost(post.blogId, post.postId)) {
-                        AppLog.w(AppLog.T.READER, "Updating content for " + post.getTitle());
-                        updateContentForSinglePost(post.blogId, post.postId);
-                    }
-                }
-            });
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(1);
+        for (ReaderPost post : posts) {
+            executor.submit(new ContentThread(post));
         }
     }
 
-    private static void updateContentForSinglePost(final long blogId, final long postId) {
-        com.wordpress.rest.RestRequest.Listener listener = new RestRequest.Listener() {
-            @Override
-            public void onResponse(JSONObject jsonObject) {
-                String content = JSONUtils.getString(jsonObject, "content");
-                AppLog.w(AppLog.T.READER, "content updated");
-                ReaderPostTable.setPostContent(blogId, postId, content);
-            }
-        };
+    /*
+     * thread which updates the content for a single post
+     */
+    static class ContentThread extends Thread {
+        final long mBlogId;
+        final long mPostId;
+        boolean mIsCompleted;
+        private final Object mMonitor = new Object();
 
-        String path = "read/sites/" + blogId + "/posts/" + postId + "/?fields=content";
-        WordPress.getRestClientUtilsV1_2().get(path, null, null, listener, null);
+        ContentThread(@NonNull ReaderPost post) {
+            mBlogId = post.blogId;
+            mPostId = post.postId;
+        }
+
+        private void setIsCompleted(boolean isCompleted) {
+            mIsCompleted = isCompleted;
+            if (mIsCompleted) {
+                synchronized(mMonitor) {
+                    mMonitor.notifyAll();
+                }
+            }
+        }
+        @Override
+        public void run() {
+            // skip posts we already have the content for
+            if (ReaderPostTable.hasContentForPost(mBlogId, mPostId)) {
+                return;
+            }
+            setIsCompleted(false);
+            updateContent();
+            while (!mIsCompleted) {
+                synchronized (mMonitor) {
+                    try {
+                        mMonitor.wait();
+                    } catch (InterruptedException e) {
+                        AppLog.e(AppLog.T.READER, e);
+                    }
+                }
+            }
+        }
+
+        private void updateContent() {
+            com.wordpress.rest.RestRequest.Listener listener = new RestRequest.Listener() {
+                @Override
+                public void onResponse(JSONObject jsonObject) {
+                    String content = JSONUtils.getString(jsonObject, "content");
+                    AppLog.w(AppLog.T.READER, "content updated");
+                    ReaderPostTable.setPostContent(mBlogId, mPostId, content);
+                    setIsCompleted(true);
+                }
+            };
+
+            RestRequest.ErrorListener errorListener = new RestRequest.ErrorListener() {
+                @Override
+                public void onErrorResponse(VolleyError volleyError) {
+                    AppLog.e(AppLog.T.READER, volleyError);
+                    setIsCompleted(true);
+                }
+            };
+
+            AppLog.w(AppLog.T.READER, "Updating content");
+            String path = "read/sites/" + mBlogId + "/posts/" + mPostId + "/?fields=content";
+            WordPress.getRestClientUtilsV1_2().get(path, null, null, listener, errorListener);
+        }
     }
 
 
