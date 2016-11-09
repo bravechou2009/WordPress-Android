@@ -525,9 +525,11 @@ public class ReaderPostDetailFragment extends Fragment
                 if (!isAdded()) {
                     return;
                 }
-                // if the post has changed, reload it from the db and update the like/comment counts
+                // if the post has changed, reload it from the db then update the content
+                // and the like/comment counts
                 if (result.isNewOrChanged()) {
                     mPost = ReaderPostTable.getBlogPost(mPost.blogId, mPost.postId, false);
+                    refreshContent();
                     refreshIconCounts();
                 }
                 // refresh likes if necessary - done regardless of whether the post has changed
@@ -620,6 +622,17 @@ public class ReaderPostDetailFragment extends Fragment
         mLikingUsersLabel.setVisibility(View.VISIBLE);
         mLikingUsersView.setVisibility(View.VISIBLE);
         mLikingUsersView.showLikingUsers(mPost);
+    }
+
+    /*
+     * render the post content in the webView
+     */
+    private void refreshContent() {
+        if (!isAdded() || !hasPost()) return;
+
+        mRenderer = new ReaderPostRenderer(mReaderWebView, mPost);
+        mRenderer.beginRender();
+
     }
 
     private boolean showPhotoViewer(String imageUrl, View sourceView, int startX, int startY) {
@@ -811,15 +824,10 @@ public class ReaderPostDetailFragment extends Fragment
             // scrollView was hidden in onCreateView, show it now that we have the post
             mScrollView.setVisibility(View.VISIBLE);
 
-            // render the post in the webView
-            mRenderer = new ReaderPostRenderer(mReaderWebView, mPost);
-            mRenderer.beginRender();
-
             txtTitle.setText(mPost.hasTitle() ? mPost.getTitle() : getString(R.string.reader_untitled_post));
 
             String timestamp = DateTimeUtils.javaDateToTimeSpan(mPost.getDisplayDate(), WordPress.getContext());
             txtDateline.setText(timestamp);
-
 
             headerView.setPost(mPost);
             tagStrip.setPost(mPost);
@@ -828,6 +836,7 @@ public class ReaderPostDetailFragment extends Fragment
                 AniUtils.fadeIn(mLayoutFooter, AniUtils.Duration.LONG);
             }
 
+            refreshContent();
             refreshIconCounts();
         }
     }
